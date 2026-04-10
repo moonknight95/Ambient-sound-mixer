@@ -2,9 +2,9 @@
 
 A beautiful ambient soundscape mixer built with vanilla HTML, CSS, and the Web Audio API.
 
-**[Live Demo →](https://YOUR_USERNAME.github.io/jsmixer)**
+**[Live Demo →](https://moonknight95.github.io/Ambient-sound-mixer)**
 
-![Ambient Sound Mixer UI](https://raw.githubusercontent.com/YOUR_USERNAME/jsmixer/main/preview.png)
+![Ambient Sound Mixer UI](https://raw.githubusercontent.com/moonknight95/Ambient-sound-mixer/main/preview.png)
 
 ---
 
@@ -34,7 +34,7 @@ A beautiful ambient soundscape mixer built with vanilla HTML, CSS, and the Web A
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/jsmixer.git
+git clone https://github.com/moonknight95/Ambient-sound-mixer.git
 cd jsmixer
 
 # Generate synthetic sound files (Python 3 required)
@@ -81,11 +81,10 @@ The included `generate_sounds.py` script synthesises 8 × 30-second ambient loop
 
 ## Deploy to GitHub Pages
 
-1. Create a repo named `jsmixer` on GitHub
-2. `git remote add origin https://github.com/YOUR_USERNAME/jsmixer.git`
-3. `git push -u origin main`
-4. Go to **Settings → Pages → Source: main branch → / (root)**
-5. Access at `https://YOUR_USERNAME.github.io/jsmixer`
+1. `git remote add origin https://github.com/moonknight95/Ambient-sound-mixer.git`
+2. `git push -u origin main`
+3. Go to **Settings → Pages → Source: main branch → / (root)**
+4. Access at `https://moonknight95.github.io/Ambient-sound-mixer`
 
 ## License
 
