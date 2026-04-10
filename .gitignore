@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+*.code-workspace
+
+# Generated audio (can be recreated with generate_sounds.py)
+# Comment out the line below if you want to commit the WAV files
+# sounds/*.wav
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

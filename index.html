@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ambient Sound Mixer — Focus, Relax, Flow</title>
+  <meta name="description"
+        content="A beautiful ambient sound mixer for focus and relaxation. Mix rain, forest, ocean, fire, café sounds with real-time volume control and custom presets." />
+  <meta name="theme-color" content="#080c14" />
+
+  <!-- Open Graph -->
+  <meta property="og:title"       content="Ambient Sound Mixer" />
+  <meta property="og:description" content="Mix ambient sounds to help you focus, relax, or sleep." />
+  <meta property="og:type"        content="website" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Loading overlay ────────────────────────────────────── -->
+  <div id="loading-overlay" role="status" aria-label="Loading audio files">
+    <div class="loading-logo">🎧</div>
+    <p class="loading-text">Loading sounds…</p>
+    <div class="loading-bar-track">
+      <div id="loading-progress"></div>
+    </div>
+  </div>
+
+  <!-- ── Toast notification ─────────────────────────────────── -->
+  <div id="toast" role="alert" aria-live="polite"></div>
+
+  <!-- ── Main app ───────────────────────────────────────────── -->
+  <div id="app">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-mark" aria-hidden="true">🌿</div>
+
+      <div class="header-text">
+        <h1>Ambient Sound Mixer</h1>
+        <p>Craft your perfect soundscape for focus &amp; flow</p>
+      </div>
+
+      <div class="header-controls">
+        <!-- Master volume -->
+        <div class="master-control">
+          <label for="master-vol">Master</label>
+          <input
+            type="range"
+            id="master-vol"
+            class="range-input"
+            min="0" max="100" value="80"
+            aria-label="Master volume"
+          />
+          <span id="master-vol-display">80%</span>
+        </div>
+
+        <!-- Mute button -->
+        <button id="mute-btn" aria-pressed="false" title="Toggle mute (Space)">
+          <span class="mute-icon">🔊</span>
+          <span class="mute-label">Mute</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Keyboard hints -->
+    <div class="kbd-hints" aria-label="Keyboard shortcuts">
+      <span class="kbd-hint"><kbd>Space</kbd> Mute / Unmute</span>
+      <span class="kbd-hint"><kbd>R</kbd> Random preset</span>
+    </div>
+
+    <!-- Visualiser -->
+    <section class="visualiser-section" aria-label="Audio visualiser">
+      <div class="visualiser-wrap">
+        <canvas id="visualiser" aria-hidden="true"></canvas>
+        <span class="vis-label">Live Mix</span>
+      </div>
+    </section>
+
+    <!-- Presets -->
+    <section class="presets-section" aria-labelledby="presets-heading">
+      <h2 id="presets-heading" class="section-title">Presets</h2>
+
+      <div id="preset-buttons" role="group" aria-label="Sound presets">
+        <!-- Rendered by main.js -->
+      </div>
+
+      <div class="save-preset-row">
+        <input
+          type="text"
+          id="preset-name-input"
+          class="preset-name-input"
+          placeholder="Name your mix…"
+          maxlength="40"
+          aria-label="Custom preset name"
+        />
+        <button id="save-preset-btn" class="btn-save-preset">
+          Save Preset
+        </button>
+      </div>
+    </section>
+
+    <!-- Track grid -->
+    <section class="tracks-section" aria-labelledby="tracks-heading">
+      <h2 id="tracks-heading" class="section-title">Sounds</h2>
+
+      <div id="track-grid" role="group" aria-label="Sound tracks">
+        <!-- Rendered by main.js -->
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Ambient Sound Mixer &nbsp;·&nbsp; Web Audio API &nbsp;·&nbsp;
+         <kbd>Space</kbd> mute &nbsp; <kbd>R</kbd> random preset</p>
+    </footer>
+
+  </div><!-- /#app -->
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
