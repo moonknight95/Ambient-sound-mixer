@@ -33,14 +33,14 @@ import {
 // ─── Track definitions (using external direct audio URLs) ─────────────────────────
 
 const TRACKS = [
-  { id: "rain",       label: "Rain",       icon: "🌧️", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/8/8a/Sound_of_rain.ogg/Sound_of_rain.ogg.mp3" },
-  { id: "thunder",    label: "Thunder",    icon: "⛈️", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/9/93/Thunder.ogg/Thunder.ogg.mp3" },
-  { id: "wind",       label: "Wind",       icon: "💨", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/a/ae/Wind.ogg/Wind.ogg.mp3" },
-  { id: "forest",     label: "Forest",     icon: "🌲", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/b/b5/Forest_ambience.ogg/Forest_ambience.ogg.mp3" },
-  { id: "ocean",      label: "Ocean",      icon: "🌊", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/9/90/Waves_on_a_beach.ogg/Waves_on_a_beach.ogg.mp3" },
-  { id: "fire",       label: "Fire",       icon: "🔥", src: "https://upload.wikimedia.org/wikipedia/commons/8/80/Bones_breaking_wood_fire_ice_crackling.ogg" },
-  { id: "cafe",       label: "Café",       icon: "☕", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Cafe_ambience.ogg/Cafe_ambience.ogg.mp3" },
-  { id: "whitenoise", label: "White Noise",icon: "〰️", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/a/aa/White_noise.ogg/White_noise.ogg.mp3" },
+  { id: "rain",       label: "Rain",       icon: "🌧️", src: "https://actions.google.com/sounds/v1/water/rain_on_roof.ogg" },
+  { id: "thunder",    label: "Thunder",    icon: "⛈️", src: "https://actions.google.com/sounds/v1/weather/thunder_crack.ogg" },
+  { id: "wind",       label: "Wind",       icon: "💨", src: "https://actions.google.com/sounds/v1/weather/strong_wind.ogg" },
+  { id: "forest",     label: "Forest",     icon: "🌲", src: "https://actions.google.com/sounds/v1/ambiences/forest_morning.ogg" },
+  { id: "ocean",      label: "Ocean",      icon: "🌊", src: "https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg" },
+  { id: "fire",       label: "Fire",       icon: "🔥", src: "https://actions.google.com/sounds/v1/emergency/fire_crackling.ogg" },
+  { id: "cafe",       label: "Café",       icon: "☕", src: "https://actions.google.com/sounds/v1/crowds/cafe_crowd.ogg" },
+  { id: "whitenoise", label: "White Noise",icon: "〰️", src: "https://actions.google.com/sounds/v1/water/fountain_water_bubbling.ogg" },
 ];
 
 const STATE_KEY  = "ambient_mixer_state";
