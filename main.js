@@ -1,15 +1,14 @@
 /**
  * main.js — UI layer + state management for Ambient Sound Mixer
  *
- * All 8 ambient tracks are synthesised procedurally in audio-engine.js —
- * no external files, no network requests.
+ * Modified to load external audio sources.
  */
 
 import {
   getContext,
   resumeContext,
   initTrack,
-  generateTrack,
+  loadTrack,
   playTrack,
   stopTrack,
   isPlaying,
@@ -31,17 +30,17 @@ import {
   deleteCustomPreset,
 } from "./presets.js";
 
-// ─── Track definitions ────────────────────────────────────────────────────────
+// ─── Track definitions (using external direct audio URLs) ─────────────────────────
 
 const TRACKS = [
-  { id: "rain",       label: "Rain",       icon: "🌧️" },
-  { id: "thunder",    label: "Thunder",    icon: "⛈️" },
-  { id: "wind",       label: "Wind",       icon: "💨" },
-  { id: "forest",     label: "Forest",     icon: "🌲" },
-  { id: "ocean",      label: "Ocean",      icon: "🌊" },
-  { id: "fire",       label: "Fire",       icon: "🔥" },
-  { id: "cafe",       label: "Café",       icon: "☕" },
-  { id: "whitenoise", label: "White Noise",icon: "〰️" },
+  { id: "rain",       label: "Rain",       icon: "🌧️", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/8/8a/Sound_of_rain.ogg/Sound_of_rain.ogg.mp3" },
+  { id: "thunder",    label: "Thunder",    icon: "⛈️", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/9/93/Thunder.ogg/Thunder.ogg.mp3" },
+  { id: "wind",       label: "Wind",       icon: "💨", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/a/ae/Wind.ogg/Wind.ogg.mp3" },
+  { id: "forest",     label: "Forest",     icon: "🌲", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/b/b5/Forest_ambience.ogg/Forest_ambience.ogg.mp3" },
+  { id: "ocean",      label: "Ocean",      icon: "🌊", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/9/90/Waves_on_a_beach.ogg/Waves_on_a_beach.ogg.mp3" },
+  { id: "fire",       label: "Fire",       icon: "🔥", src: "https://upload.wikimedia.org/wikipedia/commons/8/80/Bones_breaking_wood_fire_ice_crackling.ogg" },
+  { id: "cafe",       label: "Café",       icon: "☕", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Cafe_ambience.ogg/Cafe_ambience.ogg.mp3" },
+  { id: "whitenoise", label: "White Noise",icon: "〰️", src: "https://upload.wikimedia.org/wikipedia/commons/transcoded/a/aa/White_noise.ogg/White_noise.ogg.mp3" },
 ];
 
 const STATE_KEY  = "ambient_mixer_state";
@@ -52,6 +51,7 @@ const MASTER_KEY = "ambient_mixer_master";
 let trackStates  = {};
 let activePreset = null;
 let customPresets = {};
+let loadError    = {};
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 
@@ -87,22 +87,24 @@ function renderTracks() {
     const st     = trackStates[id];
     const active = st?.active ?? false;
     const vol    = st?.volume ?? 40;
+    const failed = loadError[id];
 
     const card       = document.createElement("div");
-    card.className   = `track-card${active ? " active" : ""}`;
+    card.className   = `track-card${active ? " active" : ""}${failed ? " failed" : ""}`;
     card.dataset.id  = id;
     card.innerHTML   = `
       <div class="track-icon">${icon}</div>
       <div class="track-label">${label}</div>
+      ${failed ? `<div class="track-error">⚠️ Audio unavailable</div>` : ""}
       <label class="toggle-wrap" aria-label="Toggle ${label}">
         <input type="checkbox" class="track-toggle sr-only"
-               data-id="${id}" ${active ? "checked" : ""}>
+               data-id="${id}" ${active ? "checked" : ""} ${failed ? "disabled" : ""}>
         <span class="toggle-pill"></span>
       </label>
       <div class="slider-wrap">
         <input type="range" class="track-slider" data-id="${id}"
                min="0" max="100" value="${vol}"
-               aria-label="${label} volume">
+               aria-label="${label} volume" ${failed ? "disabled" : ""}>
         <span class="vol-display">${vol}%</span>
       </div>
     `;
@@ -136,6 +138,7 @@ function syncCardUI(id) {
 // ─── Audio interaction ────────────────────────────────────────────────────────
 
 async function enableTrack(id, vol, fadeTime = 0.8) {
+  if (loadError[id]) return;
   await resumeContext();
   if (!isPlaying(id)) {
     setVolume(id, 0);
@@ -213,7 +216,7 @@ muteBtn.addEventListener("click", async () => {
   muteBtn.classList.toggle("muted", muted);
   muteBtn.setAttribute("aria-pressed", muted);
   muteBtn.querySelector(".mute-label").textContent = muted ? "Unmute" : "Mute";
-  muteBtn.querySelector(".mute-icon").textContent  = muted ? "🔇" : "🔊";
+  muteBtn.querySelector(".mute-icon").textContent  = muted ? "🔇" : "📢";
 });
 
 // ─── Presets ──────────────────────────────────────────────────────────────────
@@ -254,7 +257,7 @@ async function applyPreset(name) {
   await new Promise((r) => setTimeout(r, 380));
 
   for (const [id, vol] of Object.entries(preset)) {
-    if (!trackStates[id]) continue;
+    if (!trackStates[id] || loadError[id]) continue;
     const volPct = Math.round(vol * 100);
     trackStates[id].volume = volPct;
     await enableTrack(id, volPct, 1.5);
@@ -389,7 +392,7 @@ function drawVisualiser() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-function init() {
+async function init() {
   restoreState();
   customPresets = loadCustomPresets();
 
@@ -403,14 +406,20 @@ function init() {
   // Initialise track slots
   TRACKS.forEach(({ id }) => initTrack(id));
 
-  // Generate all sounds procedurally (synchronous, ~50-100ms total)
-  if (loadingText) loadingText.textContent = "Synthesising sounds…";
-  TRACKS.forEach(({ id }, idx) => {
-    generateTrack(id);
-    if (loadingProgress) {
-      loadingProgress.style.width = `${((idx + 1) / TRACKS.length) * 100}%`;
-    }
-  });
+  // Load external audio files
+  if (loadingText) loadingText.textContent = "Loading sounds...";
+  let loaded = 0;
+  await Promise.all(
+    TRACKS.map(async ({ id, src }) => {
+      const ok = await loadTrack(id, src);
+      if (!ok) loadError[id] = true;
+      loaded++;
+      if (loadingProgress) {
+        loadingProgress.style.width = `${(loaded / TRACKS.length) * 100}%`;
+      }
+      return ok;
+    })
+  );
 
   // Render UI
   renderTracks();
@@ -425,7 +434,7 @@ function init() {
   // Restore active tracks from saved state
   TRACKS.forEach(({ id }) => {
     const st = trackStates[id];
-    if (st?.active) {
+    if (st?.active && !loadError[id]) {
       setVolume(id, 0);
       playTrack(id);
       fadeVolume(id, st.volume / 100, 1.2);
@@ -436,6 +445,12 @@ function init() {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
   drawVisualiser();
+  
+  // Show tooltip if some fail
+  const failedCount = Object.keys(loadError).length;
+  if(failedCount > 0){
+    showToast(`${failedCount} sound(s) were unavailable.`, "warn");
+  }
 }
 
 init();

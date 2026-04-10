@@ -17,7 +17,7 @@ A beautiful ambient soundscape mixer built with vanilla **HTML**, **CSS**, and t
 - 💾 **State persistence** — volumes and active tracks restored on reload
 - 🎨 Dark glassmorphism design with animated glow effects
 - 📱 Fully responsive CSS Grid layout
-- ⚡ **No external files** — all sounds generated procedurally in JS
+- 🌐 **External Audio Fetching** — No heavy audio files stored in the repository. Audio is dynamically loaded using public MP3/OGG URLs!
 
 ---
 
@@ -27,33 +27,16 @@ A beautiful ambient soundscape mixer built with vanilla **HTML**, **CSS**, and t
 |---------|------|
 | Structure | Semantic HTML5 |
 | Styles  | Vanilla CSS (design tokens, glassmorphism, micro-animations) |
-| Audio   | Web Audio API — procedural DSP synthesis (no audio files) |
+| Audio   | Web Audio API — direct BufferSource streaming using public URLs |
 | Logic   | Vanilla ES Modules (no framework, no bundler) |
 | Fonts   | Google Fonts — Inter + Outfit |
-
----
-
-## How Sounds Are Generated
-
-All 8 ambient textures are synthesised in the browser using **digital signal processing**:
-
-| Track | Technique |
-|-------|-----------|
-| **Rain** | White noise → bandpass filter + timed drop impulses |
-| **Thunder** | Lowpass noise + exponential-decay amplitude claps |
-| **Wind** | Bandpass noise × slow sinusoidal gust modulation |
-| **Forest** | Quiet noise + bird chirps (sine FM synthesis) + crickets |
-| **Ocean** | Lowpass noise × wave-shaped amplitude envelope |
-| **Fire** | Bandpass noise + random crackle impulses + flicker LFO |
-| **Café** | Quiet noise + voiced formant blobs + clink transients |
-| **White Noise** | Pure filtered white noise |
 
 ---
 
 ## Audio Engine Architecture
 
 ```
-BufferSource (looping procedural buffer)
+BufferSource (external audio buffer)
         │
    GainNode (per-track volume)  ← linearRampToValueAtTime for fades
         │
@@ -70,6 +53,7 @@ BufferSource (looping procedural buffer)
 - `BufferSourceNode` recreated per play (one-shot design)
 - Stopped sources immediately disconnected (no memory leaks)
 - Volumes use `setTargetAtTime` / `linearRampToValueAtTime` (no clicks)
+- Fault-tolerant fetch implementation that visually disables unavailable audio channels
 
 ---
 
@@ -81,11 +65,9 @@ git clone https://github.com/moonknight95/Ambient-sound-mixer.git
 cd Ambient-sound-mixer
 
 # Serve (Web Audio API requires HTTP, not file://)
-python -m http.server 5500
-# then open http://localhost:5500
+npx serve .
+# Or use live server
 ```
-
-> No build step, no `npm install`, no audio files to download.
 
 ---
 
