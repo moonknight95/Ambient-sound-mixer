@@ -1,19 +1,15 @@
 /**
  * main.js — UI layer + state management for Ambient Sound Mixer
  *
- * Responsibilities:
- *  - Render track cards from TRACKS data
- *  - Wire all events (toggle, slider, master vol, mute, keyboard)
- *  - Manage preset system (built-in + custom)
- *  - Persist & restore state via localStorage
- *  - Drive the AnalyserNode canvas visualiser
+ * All 8 ambient tracks are synthesised procedurally in audio-engine.js —
+ * no external files, no network requests.
  */
 
 import {
   getContext,
   resumeContext,
   initTrack,
-  loadTrack,
+  generateTrack,
   playTrack,
   stopTrack,
   isPlaying,
@@ -38,25 +34,24 @@ import {
 // ─── Track definitions ────────────────────────────────────────────────────────
 
 const TRACKS = [
-  { id: "rain",       label: "Rain",        src: "sounds/rain",       icon: "🌧️" },
-  { id: "thunder",    label: "Thunder",      src: "sounds/thunder",    icon: "⛈️" },
-  { id: "wind",       label: "Wind",         src: "sounds/wind",       icon: "💨" },
-  { id: "forest",     label: "Forest",       src: "sounds/forest",     icon: "🌲" },
-  { id: "ocean",      label: "Ocean",        src: "sounds/ocean",      icon: "🌊" },
-  { id: "fire",       label: "Fire",         src: "sounds/fire",       icon: "🔥" },
-  { id: "cafe",       label: "Café",         src: "sounds/cafe",       icon: "☕" },
-  { id: "whitenoise", label: "White Noise",  src: "sounds/whitenoise", icon: "〰️" },
+  { id: "rain",       label: "Rain",       icon: "🌧️" },
+  { id: "thunder",    label: "Thunder",    icon: "⛈️" },
+  { id: "wind",       label: "Wind",       icon: "💨" },
+  { id: "forest",     label: "Forest",     icon: "🌲" },
+  { id: "ocean",      label: "Ocean",      icon: "🌊" },
+  { id: "fire",       label: "Fire",       icon: "🔥" },
+  { id: "cafe",       label: "Café",       icon: "☕" },
+  { id: "whitenoise", label: "White Noise",icon: "〰️" },
 ];
 
-const STATE_KEY   = "ambient_mixer_state";
-const MASTER_KEY  = "ambient_mixer_master";
+const STATE_KEY  = "ambient_mixer_state";
+const MASTER_KEY = "ambient_mixer_master";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let trackStates = {};   // { id: { active: bool, volume: 0–100 } }
+let trackStates  = {};
 let activePreset = null;
-let customPresets = {}; // merged from localStorage
-let loadError = {};     // tracks that failed to load
+let customPresets = {};
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 
@@ -72,13 +67,14 @@ const canvas           = document.getElementById("visualiser");
 const ctx2d            = canvas ? canvas.getContext("2d") : null;
 const loadingOverlay   = document.getElementById("loading-overlay");
 const loadingProgress  = document.getElementById("loading-progress");
+const loadingText      = document.getElementById("loading-text");
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
 let toastTimer = null;
 function showToast(msg, type = "info") {
   toastEl.textContent = msg;
-  toastEl.className = `toast toast--${type} toast--show`;
+  toastEl.className   = `toast toast--${type} toast--show`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove("toast--show"), 3000);
 }
@@ -88,26 +84,25 @@ function showToast(msg, type = "info") {
 function renderTracks() {
   trackGrid.innerHTML = "";
   TRACKS.forEach(({ id, label, icon }) => {
-    const st = trackStates[id];
+    const st     = trackStates[id];
     const active = st?.active ?? false;
     const vol    = st?.volume ?? 40;
-    const failed = loadError[id];
 
-    const card = document.createElement("div");
-    card.className = `track-card${active ? " active" : ""}${failed ? " failed" : ""}`;
-    card.dataset.id = id;
-    card.innerHTML = `
+    const card       = document.createElement("div");
+    card.className   = `track-card${active ? " active" : ""}`;
+    card.dataset.id  = id;
+    card.innerHTML   = `
       <div class="track-icon">${icon}</div>
       <div class="track-label">${label}</div>
-      ${failed ? `<div class="track-error">⚠️ No audio file</div>` : ""}
       <label class="toggle-wrap" aria-label="Toggle ${label}">
-        <input type="checkbox" class="track-toggle sr-only" data-id="${id}" ${active ? "checked" : ""} ${failed ? "disabled" : ""}>
+        <input type="checkbox" class="track-toggle sr-only"
+               data-id="${id}" ${active ? "checked" : ""}>
         <span class="toggle-pill"></span>
       </label>
       <div class="slider-wrap">
         <input type="range" class="track-slider" data-id="${id}"
-          min="0" max="100" value="${vol}" ${failed ? "disabled" : ""}
-          aria-label="${label} volume">
+               min="0" max="100" value="${vol}"
+               aria-label="${label} volume">
         <span class="vol-display">${vol}%</span>
       </div>
     `;
@@ -115,7 +110,7 @@ function renderTracks() {
   });
 }
 
-// ─── Track state helpers ──────────────────────────────────────────────────────
+// ─── Track UI helpers ─────────────────────────────────────────────────────────
 
 function getCard(id) {
   return trackGrid.querySelector(`.track-card[data-id="${id}"]`);
@@ -162,17 +157,15 @@ async function disableTrack(id, fadeTime = 0.8) {
 // ─── Event delegation ─────────────────────────────────────────────────────────
 
 trackGrid.addEventListener("change", async (e) => {
-  const target = e.target;
-  const id     = target.dataset.id;
+  const { target } = e;
+  const id = target.dataset.id;
   if (!id) return;
 
   await resumeContext();
 
   if (target.classList.contains("track-toggle")) {
-    const nowActive = target.checked;
-    if (nowActive) {
-      const vol = trackStates[id]?.volume ?? 50;
-      await enableTrack(id, vol);
+    if (target.checked) {
+      await enableTrack(id, trackStates[id]?.volume ?? 50);
     } else {
       await disableTrack(id);
     }
@@ -185,11 +178,9 @@ trackGrid.addEventListener("change", async (e) => {
     const vol = parseInt(target.value, 10);
     trackStates[id].volume = vol;
 
-    // Update display
     const display = target.nextElementSibling;
     if (display) display.textContent = `${vol}%`;
 
-    // Auto-enable if slider moved above 0
     if (vol > 0 && !trackStates[id].active) {
       await enableTrack(id, vol, 0.3);
     } else if (vol === 0 && trackStates[id].active) {
@@ -233,13 +224,12 @@ function getAllPresets() {
 
 function renderPresets() {
   presetContainer.innerHTML = "";
-  const all = getAllPresets();
-  Object.keys(all).forEach((name) => {
-    const isCustom   = !!customPresets[name];
-    const btn        = document.createElement("button");
-    btn.className    = `preset-btn${activePreset === name ? " active" : ""}`;
+  Object.keys(getAllPresets()).forEach((name) => {
+    const isCustom = !!customPresets[name];
+    const btn      = document.createElement("button");
+    btn.className  = `preset-btn${activePreset === name ? " active" : ""}`;
     btn.dataset.name = name;
-    btn.innerHTML    = `<span>${name}</span>${isCustom ? `<span class="preset-delete" data-name="${name}" title="Delete">✕</span>` : ""}`;
+    btn.innerHTML  = `<span>${name}</span>${isCustom ? `<span class="preset-delete" data-name="${name}" title="Delete">✕</span>` : ""}`;
     presetContainer.appendChild(btn);
   });
 }
@@ -251,24 +241,19 @@ function updatePresetHighlight() {
 }
 
 async function applyPreset(name) {
-  const all    = getAllPresets();
-  const preset = all[name];
+  const preset = getAllPresets()[name];
   if (!preset) return;
 
   silenceAll();
   activePreset = name;
 
-  // Reset all track states
   TRACKS.forEach(({ id }) => {
     trackStates[id] = { active: false, volume: trackStates[id]?.volume ?? 40 };
   });
 
-  // Wait a tiny moment for silence to propagate
-  await new Promise((r) => setTimeout(r, 400));
+  await new Promise((r) => setTimeout(r, 380));
 
-  // Fade in preset tracks
-  const entries = Object.entries(preset);
-  for (const [id, vol] of entries) {
+  for (const [id, vol] of Object.entries(preset)) {
     if (!trackStates[id]) continue;
     const volPct = Math.round(vol * 100);
     trackStates[id].volume = volPct;
@@ -276,13 +261,12 @@ async function applyPreset(name) {
   }
 
   updatePresetHighlight();
-  renderTracks(); // sync all cards
+  renderTracks();
   persistState();
-  showToast(`Preset "${name}" applied ✓`, "success");
+  showToast(`"${name}" applied ✓`, "success");
 }
 
 presetContainer.addEventListener("click", async (e) => {
-  // Delete button
   const delBtn = e.target.closest(".preset-delete");
   if (delBtn) {
     e.stopPropagation();
@@ -291,11 +275,10 @@ presetContainer.addEventListener("click", async (e) => {
     delete customPresets[name];
     if (activePreset === name) activePreset = null;
     renderPresets();
-    showToast(`Preset "${name}" deleted`, "info");
+    showToast(`"${name}" deleted`, "info");
     return;
   }
 
-  // Preset button
   const presetBtn = e.target.closest(".preset-btn");
   if (presetBtn) {
     await resumeContext();
@@ -310,9 +293,7 @@ savePresetBtn.addEventListener("click", () => {
   const snapshot = {};
   TRACKS.forEach(({ id }) => {
     const st = trackStates[id];
-    if (st?.active && st.volume > 0) {
-      snapshot[id] = st.volume / 100;
-    }
+    if (st?.active && st.volume > 0) snapshot[id] = st.volume / 100;
   });
 
   if (!Object.keys(snapshot).length) {
@@ -325,7 +306,7 @@ savePresetBtn.addEventListener("click", () => {
   activePreset = name;
   renderPresets();
   presetNameInput.value = "";
-  showToast(`Preset "${name}" saved ✓`, "success");
+  showToast(`"${name}" saved ✓`, "success");
 });
 
 // ─── State persistence ────────────────────────────────────────────────────────
@@ -339,19 +320,16 @@ function restoreState() {
     const raw = localStorage.getItem(STATE_KEY);
     if (raw) trackStates = JSON.parse(raw);
   } catch { /* ignore */ }
-
   TRACKS.forEach(({ id }) => {
-    if (!trackStates[id]) {
-      trackStates[id] = { active: false, volume: 40 };
-    }
+    if (!trackStates[id]) trackStates[id] = { active: false, volume: 40 };
   });
 }
 
 function restoreMasterVol() {
   const stored = parseInt(localStorage.getItem(MASTER_KEY), 10);
   const val    = isNaN(stored) ? 80 : stored;
-  masterVolSlider.value          = val;
-  masterVolDisplay.textContent   = `${val}%`;
+  masterVolSlider.value        = val;
+  masterVolDisplay.textContent = `${val}%`;
   setMasterVolume(val / 100);
 }
 
@@ -359,17 +337,11 @@ function restoreMasterVol() {
 
 document.addEventListener("keydown", async (e) => {
   if (e.target.tagName === "INPUT") return;
-
-  if (e.code === "Space") {
-    e.preventDefault();
-    muteBtn.click();
-  }
-
+  if (e.code === "Space") { e.preventDefault(); muteBtn.click(); }
   if (e.key === "r" || e.key === "R") {
     const all  = Object.keys(getAllPresets());
-    const name = all[Math.floor(Math.random() * all.length)];
     await resumeContext();
-    await applyPreset(name);
+    await applyPreset(all[Math.floor(Math.random() * all.length)]);
   }
 });
 
@@ -377,39 +349,36 @@ document.addEventListener("keydown", async (e) => {
 
 function resizeCanvas() {
   if (!canvas) return;
-  canvas.width  = canvas.offsetWidth  * window.devicePixelRatio;
-  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-  ctx2d.scale(window.devicePixelRatio, window.devicePixelRatio);
+  canvas.width  = canvas.offsetWidth  * devicePixelRatio;
+  canvas.height = canvas.offsetHeight * devicePixelRatio;
+  ctx2d.scale(devicePixelRatio, devicePixelRatio);
 }
 
 function drawVisualiser() {
   requestAnimationFrame(drawVisualiser);
   if (!canvas || !ctx2d) return;
 
-  const analyser = getAnalyser();
-  const bufLen   = analyser.frequencyBinCount;
-  const data     = new Uint8Array(bufLen);
-  analyser.getByteFrequencyData(data);
+  const an    = getAnalyser();
+  const buf   = new Uint8Array(an.frequencyBinCount);
+  an.getByteFrequencyData(buf);
 
   const W = canvas.offsetWidth;
   const H = canvas.offsetHeight;
-
   ctx2d.clearRect(0, 0, W, H);
 
-  const barCount = 48;
-  const barW     = (W / barCount) - 1.5;
-  const step     = Math.floor(bufLen / barCount);
+  const bars = 52;
+  const barW = (W / bars) - 1.5;
+  const step = Math.floor(buf.length / bars);
 
-  for (let i = 0; i < barCount; i++) {
-    const val    = data[i * step] / 255;
-    const barH   = val * H * 0.88;
-    const x      = i * (barW + 1.5);
-    const y      = H - barH;
+  for (let i = 0; i < bars; i++) {
+    const val  = buf[i * step] / 255;
+    const barH = val * H * 0.9;
+    const x    = i * (barW + 1.5);
+    const y    = H - barH;
 
-    // Gradient bar
     const grad = ctx2d.createLinearGradient(0, y, 0, H);
-    grad.addColorStop(0, `hsla(${200 + val * 80}, 85%, 65%, 0.9)`);
-    grad.addColorStop(1, `hsla(${200 + val * 80}, 85%, 40%, 0.4)`);
+    grad.addColorStop(0, `hsla(${200 + val * 80}, 85%, 65%, 0.92)`);
+    grad.addColorStop(1, `hsla(${200 + val * 80}, 85%, 38%, 0.35)`);
 
     ctx2d.fillStyle = grad;
     ctx2d.beginPath();
@@ -420,70 +389,53 @@ function drawVisualiser() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-async function init() {
+function init() {
   restoreState();
   customPresets = loadCustomPresets();
 
   // Show loading overlay
   if (loadingOverlay) loadingOverlay.style.display = "flex";
 
-  // Init AudioContext (deferred to first user gesture, but we can set up nodes)
+  // Bootstrap AudioContext + master volume
   getContext();
   restoreMasterVol();
 
-  // Initialise all track slots
+  // Initialise track slots
   TRACKS.forEach(({ id }) => initTrack(id));
 
-  // Render initial UI
+  // Generate all sounds procedurally (synchronous, ~50-100ms total)
+  if (loadingText) loadingText.textContent = "Synthesising sounds…";
+  TRACKS.forEach(({ id }, idx) => {
+    generateTrack(id);
+    if (loadingProgress) {
+      loadingProgress.style.width = `${((idx + 1) / TRACKS.length) * 100}%`;
+    }
+  });
+
+  // Render UI
   renderTracks();
   renderPresets();
 
-  // Load all audio files (concurrent)
-  let loaded = 0;
-  const results = await Promise.all(
-    TRACKS.map(async ({ id, src }) => {
-      const ok = await loadTrack(id, src);
-      if (!ok) loadError[id] = true;
-      loaded++;
-      if (loadingProgress) {
-        loadingProgress.style.width = `${(loaded / TRACKS.length) * 100}%`;
-      }
-      return ok;
-    })
-  );
-
-  // Hide loading overlay
+  // Hide overlay
   if (loadingOverlay) {
     loadingOverlay.classList.add("done");
     setTimeout(() => (loadingOverlay.style.display = "none"), 600);
   }
 
-  // Re-render with error states
-  renderTracks();
-
-  // Restore active tracks (only those that loaded successfully)
-  for (const { id } of TRACKS) {
+  // Restore active tracks from saved state
+  TRACKS.forEach(({ id }) => {
     const st = trackStates[id];
-    if (st?.active && !loadError[id]) {
+    if (st?.active) {
       setVolume(id, 0);
       playTrack(id);
       fadeVolume(id, st.volume / 100, 1.2);
     }
-  }
+  });
 
   // Start visualiser
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
   drawVisualiser();
-
-  // Failed audio hint
-  const failedCount = Object.keys(loadError).length;
-  if (failedCount > 0) {
-    showToast(
-      `${failedCount} sound(s) not found — add .ogg/.mp3 files to /sounds/`,
-      "warn"
-    );
-  }
 }
 
 init();

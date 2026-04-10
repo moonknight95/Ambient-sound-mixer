@@ -1,10 +1,8 @@
 # 🌿 Ambient Sound Mixer
 
-A beautiful ambient soundscape mixer built with vanilla HTML, CSS, and the Web Audio API.
+A beautiful ambient soundscape mixer built with vanilla **HTML**, **CSS**, and the **Web Audio API**.
 
 **[Live Demo →](https://moonknight95.github.io/Ambient-sound-mixer)**
-
-![Ambient Sound Mixer UI](https://raw.githubusercontent.com/moonknight95/Ambient-sound-mixer/main/preview.png)
 
 ---
 
@@ -15,76 +13,98 @@ A beautiful ambient soundscape mixer built with vanilla HTML, CSS, and the Web A
 - 🌟 **6 built-in presets** — Deep Focus, Rainy Night, Forest Morning, Cozy Cafe, Ocean Breeze, Campfire
 - 💾 Save & delete **custom presets** (persisted to localStorage)
 - 📊 Real-time **audio visualiser** (AnalyserNode → canvas)
-- ⌨️ Keyboard shortcuts — `Space` mute/unmute, `R` random preset
+- ⌨️ Keyboard shortcuts — `Space` mute/unmute · `R` random preset
 - 💾 **State persistence** — volumes and active tracks restored on reload
 - 🎨 Dark glassmorphism design with animated glow effects
 - 📱 Fully responsive CSS Grid layout
+- ⚡ **No external files** — all sounds generated procedurally in JS
+
+---
 
 ## Tech Stack
 
-| Layer | Tech |
-|---|---|
+| Layer   | Tech |
+|---------|------|
 | Structure | Semantic HTML5 |
-| Styles | Vanilla CSS (design tokens, glassmorphism, micro-animations) |
-| Audio | Web Audio API (`AudioContext`, `BufferSourceNode`, `GainNode`, `AnalyserNode`) |
-| Logic | Vanilla ES Modules (no framework, no bundler) |
-| Fonts | Google Fonts — Inter + Outfit |
+| Styles  | Vanilla CSS (design tokens, glassmorphism, micro-animations) |
+| Audio   | Web Audio API — procedural DSP synthesis (no audio files) |
+| Logic   | Vanilla ES Modules (no framework, no bundler) |
+| Fonts   | Google Fonts — Inter + Outfit |
+
+---
+
+## How Sounds Are Generated
+
+All 8 ambient textures are synthesised in the browser using **digital signal processing**:
+
+| Track | Technique |
+|-------|-----------|
+| **Rain** | White noise → bandpass filter + timed drop impulses |
+| **Thunder** | Lowpass noise + exponential-decay amplitude claps |
+| **Wind** | Bandpass noise × slow sinusoidal gust modulation |
+| **Forest** | Quiet noise + bird chirps (sine FM synthesis) + crickets |
+| **Ocean** | Lowpass noise × wave-shaped amplitude envelope |
+| **Fire** | Bandpass noise + random crackle impulses + flicker LFO |
+| **Café** | Quiet noise + voiced formant blobs + clink transients |
+| **White Noise** | Pure filtered white noise |
+
+---
+
+## Audio Engine Architecture
+
+```
+BufferSource (looping procedural buffer)
+        │
+   GainNode (per-track volume)  ← linearRampToValueAtTime for fades
+        │
+  MasterGainNode               ← master vol + mute toggle
+        │
+   AnalyserNode                ─── 52-bar canvas visualiser
+        │
+    Destination
+```
+
+**Key rules:**
+- `AudioContext` created lazily (browser autoplay policy)
+- `ctx.resume()` called on every user interaction
+- `BufferSourceNode` recreated per play (one-shot design)
+- Stopped sources immediately disconnected (no memory leaks)
+- Volumes use `setTargetAtTime` / `linearRampToValueAtTime` (no clicks)
+
+---
 
 ## Running Locally
 
 ```bash
 # Clone
 git clone https://github.com/moonknight95/Ambient-sound-mixer.git
-cd jsmixer
-
-# Generate synthetic sound files (Python 3 required)
-python generate_sounds.py
+cd Ambient-sound-mixer
 
 # Serve (Web Audio API requires HTTP, not file://)
 python -m http.server 5500
 # then open http://localhost:5500
 ```
 
-> **Note:** You can replace the generated `.wav` files with real ambient recordings.  
-> Place `.ogg` or `.mp3` files in `sounds/` — the engine tries `.ogg` → `.mp3` → `.wav`.
+> No build step, no `npm install`, no audio files to download.
+
+---
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|---|---|
-| `Space` | Mute / Unmute all |
-| `R` | Apply a random preset |
+| Key     | Action              |
+|---------|---------------------|
+| `Space` | Mute / Unmute all   |
+| `R`     | Apply a random preset |
 
-## Audio Engine Architecture
-
-```
-BufferSource (loop)
-      │
-   GainNode (track vol)  ← setTargetAtTime() for smooth ramp
-      │
- MasterGainNode          ← master vol + mute
-      │
-  AnalyserNode           ─── canvas visualiser
-      │
-  Destination
-```
-
-Key rules followed:
-- `AudioContext` created lazily on first user gesture
-- `ctx.resume()` guarded on every interaction
-- `BufferSourceNode` recreated per play (they're one-shot)
-- Stopped sources immediately disconnected to prevent memory leaks
-
-## Sound Generation
-
-The included `generate_sounds.py` script synthesises 8 × 30-second ambient loops using only Python's standard library (`wave`, `struct`, `math`, `random`) — no dependencies needed.
+---
 
 ## Deploy to GitHub Pages
 
-1. `git remote add origin https://github.com/moonknight95/Ambient-sound-mixer.git`
-2. `git push -u origin main`
-3. Go to **Settings → Pages → Source: main branch → / (root)**
-4. Access at `https://moonknight95.github.io/Ambient-sound-mixer`
+1. Push to `main` branch  
+2. Go to **Settings → Pages → Source: `main` branch → `/ (root)` → Save**  
+3. Live at: `https://moonknight95.github.io/Ambient-sound-mixer`
+
+---
 
 ## License
 
